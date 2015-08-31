@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>Catcher</title>
+		<link rel="shortcut icon" href="assets/favicon.ico"/>
+		<!-- -->
+		<meta http-equiv="Content-Type" content="text/html; charset=utf8"/>
+		<meta name="apple-mobile-web-app-capable" content="yes"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+		<!-- css -->
+		<link rel="stylesheet" type="text/css" href="app.css">
+	</head>
+	<body>
+		<div id='container'>
+			<div class='gametheme'>
+				<input type='button' value='Start' onClick='startGame();' style='left:40%;' class='btnStart'>
+			</div>
+			<div class='takeclosesnap' style='display:none;'>
+				<div class="fileUpload btn btn-primary">
+    				<span style='font-size:20px;'>Click</span>
+    				<input name='closesnap' type="file" accept="image/*" capture="camera" class="upload" />
+				</div>
+			</div>
+			<div class='takeopensnap' style='display:none;'>
+				<div class='logo'></div>
+				<canvas id='close' style='position:relative; height:200px; width:320px; border-radius: 100px;'></canvas>
+				<div class="fileUpload btn btn-primary">
+    				<span>Click</span>
+    				<input name='opensnap' type="file" accept="image/*" capture="camera" class="upload" />
+				</div>
+			</div>
+			<div class='startplay' style='display:none;'>
+				<div class='logo'></div>
+				<canvas id='open' style='position:relative;height:200px; width:320px; border-radius: 100px;'></canvas>
+				<input type='button' value='Start Game' onClick='startPlay();' style='left:30%;' class='btnStart'>
+			</div>
+			<div class='scorescreen' style='display:none;'>
+					<div id='score' style='float:left; display:inline-block; border: 2px solid; font-size: 20px;'>SCORE: <span>00</span></div>
+					<div id='time' style='float:right;display:inline-block;border: 2px solid; font-size: 20px;'>TIME: <span>30</span></div>
+					<div style='clear:both'></div>
+					<div class='gamescreen'>
+					  <canvas id="alter" tabindex="1" width="100" height="50" data-position-width=0 style="border:1px solid #000000;position:absolute; bottom:8px;left:0"></canvas>
+					</div>
+			</div>
+		</div>
+		<script type="text/javascript">
+			//Detecting device orientation support
+			if (window.DeviceOrientationEvent) {
+ 				document.getElementById('alter').addEventListener('deviceorientation', devOrientHandler, false);
+				//tested on desktop with keydown event (left and right)
+				document.getElementById('alter').addEventListener('keydown', devOrientHandler, false);
+			}
+			var lastDownTarget;
+			var gameover=0, score=0;
+			var moveinterval,randomdiv;
+			//canvas element behaving as catcher in game screen
+			var canelem= document.getElementById('alter');
+			//scorespan so to update score
+			var scorespan= document.querySelector('#score>span');
+			//list of snack list items
+			var snacklist=["assets/attack1.png","assets/attack2.png","assets/attack3.png"];
+			//tested on desktop with keydown event on canvas (necessary to have mousedown to remember last focused)
+			canelem.addEventListener('mousedown', function(event) {
+        		lastDownTarget = event.target;
+        		alert('mousedown');
+    		}, false);
+    		canelem.addEventListener('keydown', function(event) {
+        		if(lastDownTarget.tagName ==='CANVAS') {
+            		if(event.keyCode===37)
+						translateCanvasLeft(event.target);
+					else if(event.keyCode===39)
+						translateCanvasRight(event.target);
+        		}
+    		}, false);
+    		//NodeList
+			var input = document.querySelectorAll('input[type=file]');
+			//NodeList doesn't support forEach, adding custom forEach like Array has
+			var forEach = function (array, callback, scope) {
+			for (var i = 0; i < array.length; i++) {
+			    callback.call(scope, i, array[i]); // passes back stuff we need
+			  }
+			};
+			//Attaching onchange event for each input file change
+			forEach(input, function (index, elem) {
+				elem.onchange = function () {
+					var file = elem.files[0];
+					drawOnCanvas(file);
+				};
+			});
+			//give support for left/right tilt
+			function devOrientHandler(eventData){
+				// positive eventData.gamma suggests till towards right, negative left
+				var tiltLR = eventData.gamma;
+				if(tiltLR>0){
+					translateCanvasRight(event.target);
+				} 
+				else if(tiltLR<0)
+					translateCanvasLeft(event.target);
+				if(event.keyCode===37)
+					translateCanvasLeft(event.target);
+				else if(event.keyCode===39)
+					translateCanvasRight(event.target);
+			}
+			//function to support snatch canvas right movement
+			function translateCanvasRight(c){
+				//set boundary conditions
+				var w= parseInt(c.dataset.positionWidth,10);
+				if(w + c.width<=315){
+					c.dataset.positionWidth=w+10;
+					c.style.transform = "translateX("+ c.dataset.positionWidth+"px)";
+				}
+			}
+			//function to support snatch canvas left movement
+			function translateCanvasLeft(c){
+				var w= parseInt(c.dataset.positionWidth,10);
+				if(w>=10){
+					c.dataset.positionWidth=w-10;
+					c.style.transform = "translateX("+c.dataset.positionWidth+"px)";
+				}
+			}
+			//OnClick/ Ontap handler to start game
+			function startGame(){
+				document.getElementsByClassName('gametheme')[0].style.display='none';
+				document.getElementsByClassName('takeclosesnap')[0].style.display='block';
+			}
+			//function call taking care of animation frames for snacker animation
+			function startPlay(){
+				var time=0;
+				var count=0;
+				document.getElementsByClassName('startplay')[0].style.display='none';
+				document.getElementsByClassName('scorescreen')[0].style.display='block';
+				var destinationCanvas= document.getElementById('alter');
+			    var sourceCanvas= document.getElementById('open');
+			    var destCtx = destinationCanvas.getContext('2d');
+				//call its drawImage() function passing it the source canvas directly
+				destCtx.drawImage(sourceCanvas, 0, 0);
+				var startTime = new Date().getTime();
+				var interval= setInterval(function(){
+		    		var span= document.querySelector('#time>span');
+			   		span.innerHTML=  30 -(++time);
+		    		if(new Date().getTime() - startTime >30000){
+		    			clearInterval(interval);
+			        	gameover=1;
+			        	return;
+		    		}
+		    	}, 1000);
+
+		    	randomdiv= generateDiv();
+		    	document.getElementsByClassName('gamescreen')[0].insertBefore(randomdiv,canelem);
+		    	//moveinterval for random div created
+		    	moveinterval= setInterval(function(){
+		    			translateDIV(randomdiv);
+		    	},100);
+			}
+			//Random DIV generator
+			function generateDiv(){
+					var randomdiv= document.createElement('div');
+			    	randomdiv.style.height='50px';
+			    	randomdiv.style.width='50px';
+			    	randomdiv.style.position='relative';
+			    	randomdiv.style.display='inline-block';
+			    	randomdiv.style.top="20px";
+			    	randomdiv.style.left= Math.floor((Math.random() * 200) + 20) + 'px';
+			    	randomdiv.style.backgroundImage="url("+ snacklist[Math.floor((Math.random() * 3) + 0)] + ")";
+			    	randomdiv.style.backgroundSize="100% 100%";
+			    	randomdiv.dataset.vert=20;
+			    	randomdiv.dataset.horiz=0;
+			    	return randomdiv;
+			}
+			//function to translate random div across Y-axis
+			function translateDIV(elem){
+				//once gameover flag becomes true, stop the moveinterval responsible for translation
+				if(gameover){
+					clearInterval(moveinterval);
+					return;
+				}
+				var h= parseInt(elem.dataset.vert,10);
+				if(h<=380){
+					//For optimization concern, check for collision only when div reaches around half of screen
+					if(h>=175)
+						checkCollision(elem);
+					elem.dataset.vert=h+7;
+					elem.style.transform="translateY("+ elem.dataset.vert+"px)";
+					elem.style.webkitTransform="translateY("+ elem.dataset.vert+"px)";
+				}else{
+					//rotate back to start with some different left
+					elem.style.display='inline-block';
+					elem.style.backgroundImage="url("+ snacklist[Math.floor((Math.random() * 3) + 0)] + ")";
+					elem.style.left= Math.floor((Math.random() * 200) + 20) + 'px';
+					elem.dataset.vert=20;
+					elem.dataset.horiz=0;
+				}
+			}
+			//Checking collision between snatcher canvas and snacker div, based on box-collision 
+			function checkCollision(elem){
+				var collisionflag= false;
+				var elemposition= [
+					{x: parseInt(elem.style.left,10), y: parseInt(elem.dataset.vert,10)}, 
+					{x: parseInt(elem.style.left,10) + 50, y: parseInt(elem.dataset.vert,10)}, 
+					{x: parseInt(elem.style.left,10) + 50, y: parseInt(elem.dataset.vert,10)+50}, 
+					{x: parseInt(elem.style.left,10), y: parseInt(elem.dataset.vert)+50}
+				];
+				var canvasposition= [
+					{x: parseInt(canelem.dataset.positionWidth), y: 270},
+					{x: parseInt(canelem.dataset.positionWidth)+100, y: 320},
+				];
+				for(var i=0; i< elemposition.length; i++){
+					//horizontally on the path
+					if((canvasposition[0].x <= elemposition[i].x) && (elemposition[i].x <= canvasposition[1].x)){
+						//vertically in path
+						if(canvasposition[0].y <= elemposition[i].y){
+							//Collistion found 
+							collisionflag= true;
+							break;	
+						}
+					}
+				}
+				if(collisionflag){
+					if(elemposition[2].y>= 300){
+						if(!parseInt(elem.dataset.horiz,10)){
+							score+=10;
+							scorespan.innerHTML= score;
+							elem.dataset.horiz=1;
+						}
+					}
+				}else{
+					//decrease the score only when it surpasses canvas
+					if(elemposition[2].y>= 300){
+						if(!parseInt(elem.dataset.horiz,10)){
+							score-=5;
+							scorespan.innerHTML= score;
+							elem.dataset.horiz=1;
+						}
+					}
+				}
+				
+			}
+			//After capturing image from camera, draw it on canvas
+			function drawOnCanvas(file) {
+				var c= document.getElementById('open');
+				if(event.target.name==='closesnap'){
+					document.getElementsByClassName('takeopensnap')[0].style.display='block';
+					c= document.getElementById('close');
+				}else if(event.target.name==='opensnap'){
+					document.getElementsByClassName('takeopensnap')[0].style.display='none';
+					document.getElementsByClassName('takeclosesnap')[0].style.display='none';
+					document.getElementsByClassName('startplay')[0].style.display='block';
+				}
+				var reader = new FileReader();
+				reader.onload = function (e) {
+				    	var dataURL = e.target.result,
+						ctx = c.getContext('2d'),
+						img = new Image();
+					    img.onload = function() {
+					    	drawImageProp(ctx, this, 0, 0, c.width, c.height);
+					    };
+				    	img.src = dataURL;
+				};
+				reader.readAsDataURL(file);
+			}
+			//Resize image in canvas
+			function drawImageProp(ctx, img, x, y, w, h, offsetX, offsetY) {
+
+			    if (arguments.length === 2) {
+			        x = y = 0;
+			        w = ctx.canvas.width;
+			        h = ctx.canvas.height;
+			    }
+
+			    /// default offset is center
+			    offsetX = offsetX ? offsetX : 0.5;
+			    offsetY = offsetY ? offsetY : 0.5;
+
+			    /// keep bounds [0.0, 1.0]
+			    if (offsetX < 0) offsetX = 0;
+			    if (offsetY < 0) offsetY = 0;
+			    if (offsetX > 1) offsetX = 1;
+			    if (offsetY > 1) offsetY = 1;
+
+			    var iw = img.width,
+			        ih = img.height,
+			        r = Math.min(w / iw, h / ih),
+			        nw = iw * r,   /// new prop. width
+			        nh = ih * r,   /// new prop. height
+			        cx, cy, cw, ch, ar = 1;
+
+			    /// decide which gap to fill    
+			    if (nw < w) ar = w / nw;
+			    if (nh < h) ar = h / nh;
+			    nw *= ar;
+			    nh *= ar;
+
+			    /// calc source rectangle
+			    cw = iw / (nw / w);
+			    ch = ih / (nh / h);
+
+			    cx = (iw - cw) * offsetX;
+			    cy = (ih - ch) * offsetY;
+
+			    /// make sure source rectangle is valid
+			    if (cx < 0) cx = 0;
+			    if (cy < 0) cy = 0;
+			    if (cw > iw) cw = iw;
+			    if (ch > ih) ch = ih;
+
+			    /// fill image in dest. rectangle
+			    ctx.drawImage(img, cx, cy, cw, ch,  x, y, w, h);
+			}
+		</script>
+	</body>
+</html>
